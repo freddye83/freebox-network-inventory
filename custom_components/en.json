@@ -1,0 +1,91 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Freebox Network Inventory",
+        "description": "Entrez l'adresse de votre Freebox pour démarrer la connexion.",
+        "data": {
+          "host": "Nom d'hôte ou IP de la Freebox",
+          "port": "Port (défaut 443)"
+        }
+      },
+      "authorize": {
+        "title": "Autorisation sur la Freebox",
+        "description": "Une demande d'accès a été envoyée à votre Freebox **{host}**.\n\nAppuyez sur le **bouton fléché** de l'écran LCD de la Freebox pour autoriser l'accès, puis cliquez sur **Soumettre**.",
+        "data": {}
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à la Freebox. Vérifiez l'adresse et le port.",
+      "authorize_pending": "L'autorisation est toujours en attente. Appuyez sur le bouton de la Freebox, puis réessayez.",
+      "authorize_denied": "L'autorisation a été refusée sur la Freebox.",
+      "authorize_timeout": "Le délai d'autorisation a expiré. Veuillez relancer la configuration.",
+      "authorize_unknown": "Statut d'autorisation inconnu."
+    },
+    "abort": {
+      "already_configured": "Cette Freebox est déjà configurée.",
+      "unknown": "Une erreur inconnue s'est produite."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options de Freebox Network Inventory",
+        "data": {
+          "scan_interval": "Intervalle d'actualisation (secondes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "En ligne"
+      }
+    },
+    "sensor": {
+      "ipv4": {
+        "name": "Adresse IPv4"
+      },
+      "ipv6": {
+        "name": "Adresse IPv6"
+      },
+      "vendor": {
+        "name": "Fabricant"
+      },
+      "last_activity": {
+        "name": "Dernière activité"
+      },
+      "last_seen": {
+        "name": "Dernière présence"
+      },
+      "hostname": {
+        "name": "Nom d'hôte"
+      },
+      "devices_online": {
+        "name": "Appareils en ligne"
+      },
+      "devices_total": {
+        "name": "Total appareils"
+      },
+      "devices_new": {
+        "name": "Nouveaux appareils"
+      },
+      "host_type": {
+        "name": "Type d'appareil"
+      },
+      "ap_mac": {
+        "name": "Point d'accès"
+      },
+      "domain_name": {
+        "name": "Nom de domaine"
+      },
+      "ip_count": {
+        "name": "Nb adresses IP"
+      },
+      "first_activity": {
+        "name": "Première activité"
+      }
+    }
+  }
+}

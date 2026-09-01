@@ -1,0 +1,120 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Freebox Network Inventory",
+        "description": "Enter your Freebox address to start the connection.",
+        "data": {
+          "host": "Freebox hostname or IP",
+          "port": "Port (default 443)"
+        }
+      },
+      "authorize": {
+        "title": "Authorize on the Freebox",
+        "description": "A request has been sent to your Freebox **{host}**.\n\nPlease **press the arrow button** on the Freebox LCD screen to authorize access, then click **Submit**.",
+        "data": {}
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Freebox. Check the address and port.",
+      "authorize_pending": "Authorization is still pending. Press the button on the Freebox, then try again.",
+      "authorize_denied": "Authorization was denied on the Freebox.",
+      "authorize_timeout": "Authorization timed out. Please restart the setup.",
+      "authorize_unknown": "Unknown authorization status."
+    },
+    "abort": {
+      "already_configured": "This Freebox is already configured.",
+      "unknown": "An unknown error occurred."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Freebox Network Inventory options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Online"
+      }
+    },
+    "sensor": {
+      "ipv4": {
+        "name": "Adresse IPv4"
+      },
+      "ipv6": {
+        "name": "Adresse IPv6"
+      },
+      "vendor": {
+        "name": "Fabricant"
+      },
+      "last_activity": {
+        "name": "Dernière activité"
+      },
+      "last_seen": {
+        "name": "Dernière présence"
+      },
+      "hostname": {
+        "name": "Nom d'hôte"
+      },
+      "devices_online": {
+        "name": "Appareils en ligne"
+      },
+      "devices_total": {
+        "name": "Total appareils"
+      },
+      "devices_new": {
+        "name": "Nouveaux appareils"
+      },
+      "host_type": {
+        "name": "Type d'appareil"
+      },
+      "ap_mac": {
+        "name": "Point d'accès"
+      },
+      "domain_name": {
+        "name": "Nom de domaine"
+      },
+      "ip_count": {
+        "name": "Nb adresses IP"
+      },
+      "first_activity": {
+        "name": "Première activité"
+      }
+    },
+    "text": {
+      "device_name": {
+        "name": "Name"
+      }
+    },
+    "select": {
+      "device_type": {
+        "name": "Type",
+        "state": {
+          "Ordinateur": "Computer",
+          "Ordinateur portable": "Laptop",
+          "Smartphone": "Smartphone",
+          "Tablette": "Tablet",
+          "Téléviseur": "Television",
+          "Multimédia": "Multimedia",
+          "NAS / Serveur": "NAS / Server",
+          "Équipement réseau": "Network device",
+          "Freebox Player": "Freebox Player",
+          "Borne WiFi": "WiFi AP",
+          "Caméra IP": "IP Camera",
+          "Téléphone IP": "IP Phone",
+          "Console de jeu": "Game console",
+          "Électroménager": "Appliance",
+          "Thermostat / Clim": "Thermostat / AC",
+          "Éclairage connecté": "Smart light",
+          "Autre": "Other"
+        }
+      }
+    }
+  }
+}
