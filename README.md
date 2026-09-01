@@ -1,0 +1,1 @@
+# freebox-network-inventory
