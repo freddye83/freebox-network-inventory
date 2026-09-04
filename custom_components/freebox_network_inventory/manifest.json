@@ -11,5 +11,5 @@
   "config_flow": true,
   "integration_type": "hub",
   "quality_scale": "silver",
-  "icon": "mdi:lan"
+  
 }
