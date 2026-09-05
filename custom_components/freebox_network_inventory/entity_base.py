@@ -17,7 +17,12 @@ class FreeboxDeviceEntity(CoordinatorEntity[FreeboxNetworkCoordinator]):
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: FreeboxNetworkCoordinator, entry: ConfigEntry, mac: str) -> None:
+    def __init__(
+        self,
+        coordinator: FreeboxNetworkCoordinator,
+        entry: ConfigEntry,
+        mac: str,
+    ) -> None:
         super().__init__(coordinator)
         self._mac   = mac
         self._entry = entry
@@ -34,16 +39,23 @@ class FreeboxDeviceEntity(CoordinatorEntity[FreeboxNetworkCoordinator]):
         vendor   = d.get("vendor") or None
         friendly = d.get("friendly_name") or self._mac
         model    = d.get("host_type_label") or "Network Device"
+
+        # via_device pointe vers le hub uniquement s'il existe déjà dans le registry
+        # On utilise l'entry_id comme identifiant du hub — mais on ne le référence
+        # que si le device hub a déjà été enregistré (via FreeboxGlobalSensor).
+        # Pour éviter le warning "non existing via_device", on omet via_device ici
+        # et on laisse le hub se créer d'abord via le sensor global.
         return DeviceInfo(
             identifiers={(DOMAIN, self._mac)},
             name=friendly,
             manufacturer=vendor,
             model=model,
-            via_device=(DOMAIN, self._entry.entry_id),
+            # via_device supprimé — causait un warning HA car le hub
+            # n'existe pas encore au moment de la création des entités par appareil
         )
 
     def _fmt_dt(self, val: Any) -> str | None:
-        """Format a datetime or None to ISO string for attributes."""
+        """Format datetime to ISO string."""
         if isinstance(val, datetime):
             return val.isoformat()
         return val

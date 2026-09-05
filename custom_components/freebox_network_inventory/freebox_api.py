@@ -1,6 +1,7 @@
 """Freebox API client for Freebox Network Inventory."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -33,6 +34,14 @@ class FreeboxAuthError(FreeboxApiError):
     """Freebox authentication error."""
 
 
+def _create_ssl_context() -> ssl.SSLContext:
+    """Crée le contexte SSL — appelé dans un thread executor pour éviter de bloquer la boucle."""
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
 class FreeboxApi:
     """Async Freebox API client."""
 
@@ -43,9 +52,7 @@ class FreeboxApi:
         self._app_token: str | None = None
         self._session_token: str | None = None
         self._api_version: str = "v8"
-        self._ssl_context = ssl.create_default_context()
-        self._ssl_context.check_hostname = False
-        self._ssl_context.verify_mode = ssl.CERT_NONE
+        self._ssl_context: ssl.SSLContext | None = None  # créé en async
 
     @property
     def app_token(self) -> str | None:
@@ -54,9 +61,17 @@ class FreeboxApi:
     def set_app_token(self, token: str) -> None:
         self._app_token = token
 
+    async def _ensure_ssl(self) -> ssl.SSLContext:
+        """Crée le contexte SSL dans un executor (non bloquant)."""
+        if self._ssl_context is None:
+            loop = asyncio.get_running_loop()
+            self._ssl_context = await loop.run_in_executor(None, _create_ssl_context)
+        return self._ssl_context
+
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+            ssl_ctx = await self._ensure_ssl()
+            connector = aiohttp.TCPConnector(ssl=ssl_ctx)
             self._session = aiohttp.ClientSession(connector=connector)
         return self._session
 
@@ -104,6 +119,7 @@ class FreeboxApi:
             raise FreeboxApiError(f"Connection error: {err}") from err
 
     async def get_api_version(self) -> dict[str, Any]:
+        ssl_ctx = await self._ensure_ssl()
         session = await self._get_session()
         url = f"https://{self._host}:{self._port}{FREEBOX_API_VERSION_URL}"
         try:
@@ -119,7 +135,7 @@ class FreeboxApi:
             raise FreeboxApiError(f"Cannot reach Freebox: {err}") from err
 
     async def authorize(self) -> tuple[str, str]:
-        """Demande d'autorisation avec droits lecture + settings (modification LAN)."""
+        """Demande d'autorisation avec droits settings + lan."""
         result = await self._request(
             "POST",
             FREEBOX_AUTHORIZE_URL,
@@ -128,9 +144,6 @@ class FreeboxApi:
                 "app_name":    FREEBOX_APP_NAME,
                 "app_version": FREEBOX_APP_VERSION,
                 "device_name": FREEBOX_DEVICE_NAME,
-                # Droits demandés :
-                # - settings : lire/modifier les réglages (noms, types LAN hosts)
-                # - lan :      accès au navigateur LAN
                 "app_permissions": {
                     "settings": True,
                     "lan":      True,
@@ -174,8 +187,10 @@ class FreeboxApi:
             authenticated=False,
         )
         self._session_token = session_result["session_token"]
-        _LOGGER.debug("Freebox session opened (permissions: %s)",
-                      session_result.get("permissions", {}))
+        _LOGGER.debug(
+            "Freebox session opened (permissions: %s)",
+            session_result.get("permissions", {}),
+        )
 
     async def close_session(self) -> None:
         if self._session_token:
@@ -186,12 +201,9 @@ class FreeboxApi:
             self._session_token = None
 
     async def get_lan_hosts(self) -> list[dict[str, Any]]:
-        """Retourne tous les hôtes LAN."""
         try:
             result = await self._request("GET", FREEBOX_LAN_BROWSER_URL)
-            if isinstance(result, list):
-                return result
-            return []
+            return result if isinstance(result, list) else []
         except FreeboxAuthError:
             _LOGGER.debug("Session expired, re-opening...")
             await self.open_session()
@@ -199,7 +211,7 @@ class FreeboxApi:
             return result if isinstance(result, list) else []
 
     async def update_lan_host(self, host_id: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Modifie un hôte LAN (nom, type). host_id = ex: 'ether-3c:0b:59:38:f6:f6'."""
+        """Modifie un hôte LAN (nom, type)."""
         try:
             return await self._request(
                 "PUT",
