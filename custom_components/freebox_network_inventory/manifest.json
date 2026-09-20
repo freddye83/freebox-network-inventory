@@ -1,7 +1,7 @@
 {
   "domain": "freebox_network_inventory",
   "name": "Freebox Network Inventory",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "documentation": "https://github.com/freddye83/freebox-network-inventory",
   "issue_tracker": "https://github.com/freddye83/freebox-network-inventory/issues",
   "dependencies": [],
@@ -10,6 +10,6 @@
   "iot_class": "local_polling",
   "config_flow": true,
   "integration_type": "hub",
-  "quality_scale": "silver"
-  
+  "quality_scale": "silver",
+  "icon": "mdi:lan"
 }

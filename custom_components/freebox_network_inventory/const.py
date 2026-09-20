@@ -2,7 +2,7 @@
 
 DOMAIN = "freebox_network_inventory"
 MANUFACTURER = "Freebox Network Inventory"
-VERSION = "2.1.0"
+VERSION = "1.1.0"
 
 # Config entries
 CONF_HOST = "host"
@@ -18,7 +18,7 @@ DEFAULT_SCAN_INTERVAL = 60
 # API
 FREEBOX_APP_ID = "freebox_network_inventory"
 FREEBOX_APP_NAME = "Freebox Network Inventory"
-FREEBOX_APP_VERSION = "2.1.0"
+FREEBOX_APP_VERSION = "1.1.0"
 FREEBOX_DEVICE_NAME = "Home Assistant"
 
 FREEBOX_API_VERSION_URL = "/api_version"
@@ -31,13 +31,14 @@ FREEBOX_LAN_BROWSER_URL = "/lan/browser/pub/"
 # Data keys
 DATA_COORDINATOR = "coordinator"
 DATA_API = "api"
+DATA_SWITCH_COORDINATOR = "switch_coordinator"
 
 # Global sensor keys
 SENSOR_DEVICES_ONLINE = "devices_online"
 SENSOR_DEVICES_TOTAL = "devices_total"
 SENSOR_DEVICES_NEW = "devices_new"
 
-# Device data keys (internes)
+# Device attribute keys
 ATTR_MAC = "mac"
 ATTR_ALIAS = "alias"
 ATTR_PRIMARY_NAME = "primary_name"

@@ -225,3 +225,24 @@ class FreeboxApi:
                 f"{FREEBOX_LAN_BROWSER_URL}{host_id}",
                 data=data,
             ) or {}
+
+
+    # ── Switch API ────────────────────────────────────────────────────────────
+
+    async def get_switch_status(self) -> list[dict[str, Any]]:
+        """Retourne le statut de tous les ports du switch."""
+        try:
+            result = await self._request("GET", "/switch/status/")
+            return result if isinstance(result, list) else []
+        except FreeboxAuthError:
+            await self.open_session()
+            result = await self._request("GET", "/switch/status/")
+            return result if isinstance(result, list) else []
+
+    async def get_switch_port_stats(self, port_id: int) -> dict[str, Any]:
+        """Retourne les statistiques d'un port switch."""
+        try:
+            return await self._request("GET", f"/switch/port/{port_id}/stats") or {}
+        except FreeboxAuthError:
+            await self.open_session()
+            return await self._request("GET", f"/switch/port/{port_id}/stats") or {}
