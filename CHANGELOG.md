@@ -1,4 +1,11 @@
 # Changelog
+## [1.1.1] - 2026-10-04
+### Changed
+- sensor.py : ajout vitesses et erreurs
+
+## [1.1.0] - 2026-10-04
+### Changed
+- Ajout de la gestion du switch
 
 ## [1.0.7] - 2026-09-05
 

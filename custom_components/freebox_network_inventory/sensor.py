@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass, SensorEntity, SensorStateClass,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -15,21 +18,140 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
-    DATA_COORDINATOR, DOMAIN, MANUFACTURER,
-    SENSOR_DEVICES_NEW, SENSOR_DEVICES_ONLINE, SENSOR_DEVICES_TOTAL,
+    DATA_COORDINATOR,
+    DATA_SWITCH_COORDINATOR,
+    DOMAIN,
+    MANUFACTURER,
+    SENSOR_DEVICES_NEW,
+    SENSOR_DEVICES_ONLINE,
+    SENSOR_DEVICES_TOTAL,
 )
 from .coordinator import FreeboxNetworkCoordinator
 from .entity_base import FreeboxDeviceEntity
+from .switch_coordinator import FreeboxSwitchCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
-                            async_add_entities: AddEntitiesCallback) -> None:
-    coordinator: FreeboxNetworkCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    known: set[str] = set()
+@dataclass(frozen=True)
+class SwitchPortSensorDescription:
+    key: str
+    name: str
+    icon: str
+    value_fn: Callable[[dict[str, Any]], Any]
+    state_class: SensorStateClass | None = None
+    native_unit: str | None = None
+    device_class: SensorDeviceClass | None = None
 
-    # Capteurs globaux (hub) — une seule fois
+
+SWITCH_PORT_SENSOR_DESCRIPTIONS: tuple[SwitchPortSensorDescription, ...] = (
+    SwitchPortSensorDescription(
+        key="vitesse",
+        name="Vitesse",
+        icon="mdi:speedometer",
+        value_fn=lambda d: f"{d.get('speed')} Mbps" if d.get("speed") and d.get("speed") != "0" else None,
+    ),
+    SwitchPortSensorDescription(
+        key="mode",
+        name="Mode",
+        icon="mdi:ethernet",
+        value_fn=lambda d: d.get("mode") or None,
+    ),
+    SwitchPortSensorDescription(
+        key="duplex",
+        name="Duplex",
+        icon="mdi:swap-horizontal",
+        value_fn=lambda d: d.get("duplex") or None,
+    ),
+    SwitchPortSensorDescription(
+        key="appareils",
+        name="Appareils connectés",
+        icon="mdi:devices",
+        value_fn=lambda d: ", ".join(
+            m.get("hostname") or m.get("mac", "?")
+            for m in d.get("mac_list", [])
+        ) or None,
+    ),
+    SwitchPortSensorDescription(
+        key="nb_appareils",
+        name="Nb appareils",
+        icon="mdi:counter",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: len(d.get("mac_list", [])),
+    ),
+    SwitchPortSensorDescription(
+        key="debit_rx",
+        name="Débit entrant",
+        icon="mdi:arrow-down",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit="B/s",
+        device_class=SensorDeviceClass.DATA_RATE,
+        value_fn=lambda d: d.get("stats", {}).get("rx_bytes_rate"),
+    ),
+    SwitchPortSensorDescription(
+        key="debit_tx",
+        name="Débit sortant",
+        icon="mdi:arrow-up",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit="B/s",
+        device_class=SensorDeviceClass.DATA_RATE,
+        value_fn=lambda d: d.get("stats", {}).get("tx_bytes_rate"),
+    ),
+    SwitchPortSensorDescription(
+        key="paquets_rx",
+        name="Paquets reçus",
+        icon="mdi:package-down",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("rx_good_packets"),
+    ),
+    SwitchPortSensorDescription(
+        key="paquets_tx",
+        name="Paquets envoyés",
+        icon="mdi:package-up",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("tx_packets"),
+    ),
+    SwitchPortSensorDescription(
+        key="erreurs_rx",
+        name="Erreurs RX",
+        icon="mdi:alert-circle-outline",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("rx_err_packets"),
+    ),
+    SwitchPortSensorDescription(
+        key="erreurs_fcs",
+        name="Erreurs FCS",
+        icon="mdi:alert-outline",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("rx_fcs_packets"),
+    ),
+    SwitchPortSensorDescription(
+        key="collisions_tx",
+        name="Collisions TX",
+        icon="mdi:car-crash",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("tx_collisions"),
+    ),
+    SwitchPortSensorDescription(
+        key="octets_corrompus",
+        name="Octets corrompus RX",
+        icon="mdi:close-network",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: d.get("stats", {}).get("rx_bad_bytes"),
+    ),
+)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up sensors."""
+    coordinator: FreeboxNetworkCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    switch_coordinator: FreeboxSwitchCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_SWITCH_COORDINATOR]
+
+    # ── Capteurs globaux Hub ──────────────────────────────────────────────────
     async_add_entities([
         FreeboxGlobalSensor(coordinator, entry, SENSOR_DEVICES_ONLINE,
                             "Appareils en ligne", "mdi:devices",
@@ -42,31 +164,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             lambda c: c.new_device_count),
     ])
 
-    def _add() -> None:
+    # ── Capteurs appareils LAN — ajout dynamique ──────────────────────────────
+    known_macs: set[str] = set()
+
+    def _add_lan_sensors() -> None:
         if not coordinator.data:
             return
-        new = [FreeboxDeviceStatusSensor(coordinator, entry, mac)
-               for mac in coordinator.data if mac not in known]
+        new = [
+            FreeboxDeviceStatusSensor(coordinator, entry, mac)
+            for mac in coordinator.data if mac not in known_macs
+        ]
         for e in new:
-            known.add(e._mac)
+            known_macs.add(e._mac)
         if new:
             async_add_entities(new)
 
-    _add()
-    entry.async_on_unload(coordinator.async_add_listener(_add))
+    _add_lan_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(_add_lan_sensors))
 
+    # ── Capteurs switch — ajout dynamique ─────────────────────────────────────
+    # Utilise un listener pour éviter le timing issue au démarrage
+    known_ports: set[int] = set()
+
+    def _add_switch_sensors() -> None:
+        if not switch_coordinator.data:
+            return
+        new_entities = []
+        for port_id in switch_coordinator.data:
+            if port_id not in known_ports:
+                known_ports.add(port_id)
+                for desc in SWITCH_PORT_SENSOR_DESCRIPTIONS:
+                    new_entities.append(
+                        FreeboxSwitchPortSensor(switch_coordinator, entry, port_id, desc)
+                    )
+        if new_entities:
+            async_add_entities(new_entities)
+
+    _add_switch_sensors()
+    entry.async_on_unload(switch_coordinator.async_add_listener(_add_switch_sensors))
+
+
+# ── Appareil LAN — capteur statut ─────────────────────────────────────────────
 
 class FreeboxDeviceStatusSensor(FreeboxDeviceEntity, SensorEntity):
-    """
-    Un seul capteur par appareil réseau.
-    State : 'online' | 'offline'
-    Attributes : toutes les informations utiles
-    """
+    """Un capteur par appareil réseau."""
 
     _attr_icon = "mdi:lan-connect"
 
-    def __init__(self, coordinator: FreeboxNetworkCoordinator,
-                 entry: ConfigEntry, mac: str) -> None:
+    def __init__(self, coordinator, entry, mac):
         super().__init__(coordinator, entry, mac)
         d = coordinator.data.get(mac, {})
         slug = d.get("slug", mac.replace(":", "_").lower())
@@ -116,6 +261,8 @@ class FreeboxDeviceStatusSensor(FreeboxDeviceEntity, SensorEntity):
         }
 
 
+# ── Capteur global Hub ────────────────────────────────────────────────────────
+
 class FreeboxGlobalSensor(CoordinatorEntity[FreeboxNetworkCoordinator], SensorEntity):
     """Capteur global rattaché au device hub."""
 
@@ -151,6 +298,72 @@ class FreeboxGlobalSensor(CoordinatorEntity[FreeboxNetworkCoordinator], SensorEn
             identifiers={(DOMAIN, self._entry.entry_id)},
             name="Freebox Network Inventory",
             manufacturer=MANUFACTURER,
-            model="Hub v2.0.0",
+            model="Hub v1.1.0",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+
+# ── Capteurs switch ────────────────────────────────────────────────────────────
+
+class FreeboxSwitchPortSensor(
+    CoordinatorEntity[FreeboxSwitchCoordinator], SensorEntity
+):
+    """Capteur pour un attribut d'un port switch."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: FreeboxSwitchCoordinator,
+        entry: ConfigEntry,
+        port_id: int,
+        description: SwitchPortSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._port_id = port_id
+        self._entry   = entry
+        self._desc    = description
+        self._attr_unique_id = f"{DOMAIN}_switch_port_{port_id}_{description.key}"
+        self.entity_id = f"sensor.{DOMAIN}_switch_port_{port_id}_{description.key}"
+        self._attr_icon = description.icon
+        if description.state_class:
+            self._attr_state_class = description.state_class
+        if description.native_unit:
+            self._attr_native_unit_of_measurement = description.native_unit
+        if description.device_class:
+            self._attr_device_class = description.device_class
+
+    @property
+    def _port_data(self) -> dict[str, Any]:
+        if self.coordinator.data:
+            return self.coordinator.data.get(self._port_id, {})
+        return {}
+
+    @property
+    def name(self) -> str:
+        return self._desc.name
+
+    @property
+    def native_value(self) -> Any:
+        return self._desc.value_fn(self._port_data)
+
+    @property
+    def available(self) -> bool:
+        """Stats indisponibles si le port n'a pas de lien."""
+        stats_keys = {
+            "debit_rx", "debit_tx", "paquets_rx", "paquets_tx",
+            "erreurs_rx", "erreurs_fcs", "collisions_tx", "octets_corrompus",
+        }
+        if self._desc.key in stats_keys:
+            return self._port_data.get("link") == "up"
+        return True
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"switch_port_{self._port_id}")},
+            name=f"Switch Freebox — Port {self._port_id}",
+            manufacturer=MANUFACTURER,
+            model="Switch intégré",
             entry_type=DeviceEntryType.SERVICE,
         )
