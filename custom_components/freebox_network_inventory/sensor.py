@@ -67,18 +67,12 @@ SWITCH_PORT_SENSOR_DESCRIPTIONS: tuple[SwitchPortSensorDescription, ...] = (
         key="appareils",
         name="Appareils connectés",
         icon="mdi:devices",
-        value_fn=lambda d: ", ".join(
-            m.get("hostname") or m.get("mac", "?")
-            for m in d.get("mac_list", [])
-        ) or None,
-    ),
-    SwitchPortSensorDescription(
-        key="nb_appareils",
-        name="Nb appareils",
-        icon="mdi:counter",
         state_class=SensorStateClass.MEASUREMENT,
+        # state = nombre d'appareils (< 255 chars)
+        # liste complète dans extra_state_attributes via FreeboxSwitchPortSensor
         value_fn=lambda d: len(d.get("mac_list", [])),
     ),
+
     SwitchPortSensorDescription(
         key="debit_rx",
         name="Débit entrant",
@@ -346,6 +340,22 @@ class FreeboxSwitchPortSensor(
     @property
     def native_value(self) -> Any:
         return self._desc.value_fn(self._port_data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Pour le capteur appareils, expose la liste complète en attribut."""
+        if self._desc.key == "appareils":
+            mac_list = self._port_data.get("mac_list", [])
+            return {
+                "liste": [
+                    {
+                        "hostname": m.get("hostname") or m.get("mac", "?"),
+                        "mac": m.get("mac", ""),
+                    }
+                    for m in mac_list
+                ]
+            }
+        return None
 
     @property
     def available(self) -> bool:

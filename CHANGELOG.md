@@ -1,4 +1,12 @@
 # Changelog
+## [1.1.2] - 2026-10-04
+### Changed
+- sensor.py : ajout vitesses et erreurs
+sensor.freebox_network_inventory_switch_port_1_appareils affichera 20 (le nombre) et la liste complète sera dans l’attribut liste.
+- coordinator.py :
+  - IPv4 : parmi toutes les adresses de l’appareil, l’intégration retient celle qui est joignable avec la last_activity la plus récente, au lieu de la première de la liste.
+  - IPv6 : même règle, avec en plus une préférence pour une adresse globale (2a01:...) plutôt qu’une link-local (fe80::).
+  - Attribut ip_list : les adresses sont maintenant triées de la plus récente à la plus ancienne, donc l’actuelle est toujours en premier.
 ## [1.1.1] - 2026-10-04
 ### Changed
 - sensor.py : ajout vitesses et erreurs

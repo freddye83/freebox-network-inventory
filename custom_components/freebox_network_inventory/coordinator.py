@@ -47,15 +47,48 @@ def _slug(name: str) -> str:
     return s or "device"
 
 
+def _recency_key(conn: dict[str, Any]) -> tuple:
+    """Clé de tri : joignable d'abord, puis activité la plus récente."""
+    return (
+        bool(conn.get("reachable")),
+        int(conn.get("last_activity") or 0),
+        int(conn.get("last_time_reachable") or 0),
+    )
+
+
+def _pick_ip(l3: list[dict[str, Any]], family: str) -> str | None:
+    """Retourne l'IP la plus pertinente pour une famille (ipv4 / ipv6).
+
+    La Freebox conserve les anciens baux dans l3connectivities : on choisit
+    l'adresse joignable avec la dernière activité la plus récente.
+    Pour l'IPv6, on préfère une adresse globale à une link-local (fe80::).
+    """
+    candidates = [c for c in l3 if c.get("af") == family and c.get("addr")]
+    if not candidates:
+        return None
+    if family == "ipv6":
+        best = max(
+            candidates,
+            key=lambda c: (
+                not c["addr"].lower().startswith("fe80"),
+                *_recency_key(c),
+            ),
+        )
+    else:
+        best = max(candidates, key=_recency_key)
+    return best["addr"]
+
+
 def _parse_host(host: dict[str, Any]) -> dict[str, Any]:
     """Parse a raw Freebox LAN host into a clean dict."""
     mac = host.get("l2ident", {}).get("id", "").upper()
 
-    # IPs
-    l3 = host.get("l3connectivities", [])
-    ip_list: list[str] = [c["addr"] for c in l3 if c.get("addr")]
-    ipv4 = next((ip for ip in ip_list if "." in ip), None)
-    ipv6 = next((ip for ip in ip_list if ":" in ip), None)
+    # IPs — triées de la plus récente à la plus ancienne
+    l3 = [c for c in host.get("l3connectivities", []) if c.get("addr")]
+    l3_sorted = sorted(l3, key=_recency_key, reverse=True)
+    ip_list: list[str] = [c["addr"] for c in l3_sorted]
+    ipv4 = _pick_ip(l3, "ipv4")
+    ipv6 = _pick_ip(l3, "ipv6")
 
     # Access point
     ap = host.get("access_point", {})
@@ -77,7 +110,6 @@ def _parse_host(host: dict[str, Any]) -> dict[str, Any]:
     alias = host.get("primary_name", "") or primary_name
     friendly = alias or primary_name or mac
 
-    # Slug pour entity_id (préfixé dans les entités)
     mac_slug = mac.replace(":", "_").lower()
 
     return {
