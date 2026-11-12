@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from homeassistant.components import persistent_notification
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -15,6 +16,7 @@ from .const import (
     ATTR_ACTIVE, ATTR_ALIAS, ATTR_CONNECTION_TYPE, ATTR_HOST_TYPE,
     ATTR_INTERFACE, ATTR_IP_LIST, ATTR_LAST_ACTIVITY, ATTR_LAST_SEEN,
     ATTR_MAC, ATTR_PERSISTENT, ATTR_PRIMARY_NAME, ATTR_REACHABLE, ATTR_VENDOR,
+    ATTR_STATIC_COMMENT, ATTR_STATIC_IP, ATTR_STATIC_LEASE,
     DOMAIN, EVENT_NEW_DEVICE, HOST_TYPE_LABELS, STORAGE_KEY, STORAGE_VERSION,
 )
 from .freebox_api import FreeboxApi, FreeboxApiError
@@ -145,13 +147,17 @@ def _parse_host(host: dict[str, Any]) -> dict[str, Any]:
 class FreeboxNetworkCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     """Coordinator that polls the Freebox LAN browser."""
 
-    def __init__(self, hass: HomeAssistant, api: FreeboxApi, scan_interval: int) -> None:
-        super().__init__(hass, _LOGGER, name=DOMAIN,
+    def __init__(self, hass: HomeAssistant, api: FreeboxApi, scan_interval: int,
+                 config_entry: ConfigEntry | None = None) -> None:
+        super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=config_entry,
                          update_interval=timedelta(seconds=scan_interval))
         self.api = api
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._known_macs: set[str] = set()
         self._new_devices_since_last_check: list[dict[str, Any]] = []
+        # Baux DHCP statiques indexés par MAC (majuscules)
+        self.static_leases: dict[str, dict[str, Any]] = {}
+        self.dhcp_config: dict[str, Any] = {}
 
     async def async_load_known_devices(self) -> None:
         data = await self._store.async_load()
@@ -167,6 +173,8 @@ class FreeboxNetworkCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]
         except FreeboxApiError as err:
             raise UpdateFailed(f"Error fetching Freebox LAN hosts: {err}") from err
 
+        await self._async_refresh_static_leases()
+
         devices: dict[str, dict[str, Any]] = {}
         new_devices: list[dict[str, Any]] = []
 
@@ -175,6 +183,10 @@ class FreeboxNetworkCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]
             mac = parsed[ATTR_MAC]
             if not mac:
                 continue
+            lease = self.static_leases.get(mac)
+            parsed[ATTR_STATIC_LEASE]   = lease is not None
+            parsed[ATTR_STATIC_IP]      = lease.get("ip") if lease else None
+            parsed[ATTR_STATIC_COMMENT] = (lease.get("comment") or None) if lease else None
             devices[mac] = parsed
             if mac not in self._known_macs:
                 new_devices.append(parsed)
@@ -196,6 +208,54 @@ class FreeboxNetworkCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]
             self._new_devices_since_last_check = []
 
         return devices
+
+    async def _async_refresh_static_leases(self) -> None:
+        """Récupère les baux statiques + config DHCP.
+
+        Non bloquant : en cas d'échec (droits insuffisants, firmware ancien…)
+        on garde les dernières valeurs connues et l'inventaire continue.
+        """
+        try:
+            leases = await self.api.get_static_leases()
+            self.static_leases = {
+                (l.get("mac") or "").upper(): {
+                    "id":       l.get("id") or l.get("mac"),
+                    "mac":      (l.get("mac") or "").upper(),
+                    "ip":       l.get("ip"),
+                    "comment":  l.get("comment") or "",
+                    "hostname": l.get("hostname") or "",
+                }
+                for l in leases if l.get("mac")
+            }
+        except FreeboxApiError as err:
+            _LOGGER.debug("Static leases unavailable: %s", err)
+        try:
+            self.dhcp_config = await self.api.get_dhcp_config()
+        except FreeboxApiError as err:
+            _LOGGER.debug("DHCP config unavailable: %s", err)
+
+    def static_leases_list(self) -> list[dict[str, Any]]:
+        """Liste des baux statiques enrichie avec l'inventaire (nom, état)."""
+        out: list[dict[str, Any]] = []
+        for mac, lease in self.static_leases.items():
+            dev = (self.data or {}).get(mac, {})
+            out.append({
+                "mac":      mac,
+                "ip":       lease.get("ip"),
+                "comment":  lease.get("comment") or None,
+                "hostname": lease.get("hostname") or None,
+                "name":     dev.get("friendly_name") or lease.get("comment") or lease.get("hostname") or mac,
+                "online":   bool(dev.get(ATTR_REACHABLE)) if dev else False,
+                "known":    bool(dev),
+            })
+
+        def _ip_key(item: dict[str, Any]) -> tuple:
+            try:
+                return tuple(int(x) for x in (item.get("ip") or "").split("."))
+            except ValueError:
+                return (999,)
+
+        return sorted(out, key=_ip_key)
 
     async def _notify_new_device(self, device: dict[str, Any]) -> None:
         name   = device["friendly_name"]

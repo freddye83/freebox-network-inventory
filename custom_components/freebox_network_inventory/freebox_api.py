@@ -18,6 +18,8 @@ from .const import (
     FREEBOX_APP_VERSION,
     FREEBOX_AUTHORIZE_URL,
     FREEBOX_DEVICE_NAME,
+    FREEBOX_DHCP_CONFIG_URL,
+    FREEBOX_DHCP_STATIC_LEASE_URL,
     FREEBOX_LAN_BROWSER_URL,
     FREEBOX_LOGIN_URL,
     FREEBOX_SESSION_URL,
@@ -246,3 +248,40 @@ class FreeboxApi:
         except FreeboxAuthError:
             await self.open_session()
             return await self._request("GET", f"/switch/port/{port_id}/stats") or {}
+
+    # ── DHCP API (baux statiques) ─────────────────────────────────────────────
+
+    async def _authed(self, method: str, path: str, data: dict | None = None) -> Any:
+        """Requête authentifiée avec réouverture de session si expirée."""
+        try:
+            return await self._request(method, path, data=data)
+        except FreeboxAuthError:
+            await self.open_session()
+            return await self._request(method, path, data=data)
+
+    async def get_static_leases(self) -> list[dict[str, Any]]:
+        """Liste tous les baux DHCP statiques."""
+        result = await self._authed("GET", FREEBOX_DHCP_STATIC_LEASE_URL)
+        return result if isinstance(result, list) else []
+
+    async def add_static_lease(self, mac: str, ip: str, comment: str = "") -> dict[str, Any]:
+        """Crée un bail DHCP statique."""
+        return await self._authed(
+            "POST",
+            FREEBOX_DHCP_STATIC_LEASE_URL,
+            data={"mac": mac, "ip": ip, "comment": comment},
+        ) or {}
+
+    async def update_static_lease(self, lease_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Modifie un bail DHCP statique (commentaire)."""
+        return await self._authed(
+            "PUT", f"{FREEBOX_DHCP_STATIC_LEASE_URL}{lease_id}", data=data
+        ) or {}
+
+    async def delete_static_lease(self, lease_id: str) -> None:
+        """Supprime un bail DHCP statique."""
+        await self._authed("DELETE", f"{FREEBOX_DHCP_STATIC_LEASE_URL}{lease_id}")
+
+    async def get_dhcp_config(self) -> dict[str, Any]:
+        """Configuration du serveur DHCP (plage, passerelle, masque)."""
+        return await self._authed("GET", FREEBOX_DHCP_CONFIG_URL) or {}

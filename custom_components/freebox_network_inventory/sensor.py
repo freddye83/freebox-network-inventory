@@ -25,6 +25,7 @@ from .const import (
     SENSOR_DEVICES_NEW,
     SENSOR_DEVICES_ONLINE,
     SENSOR_DEVICES_TOTAL,
+    SENSOR_STATIC_LEASES,
 )
 from .coordinator import FreeboxNetworkCoordinator
 from .entity_base import FreeboxDeviceEntity
@@ -156,6 +157,17 @@ async def async_setup_entry(
         FreeboxGlobalSensor(coordinator, entry, SENSOR_DEVICES_NEW,
                             "Nouveaux appareils", "mdi:new-box",
                             lambda c: c.new_device_count),
+        FreeboxStaticLeasesSensor(coordinator, entry, SENSOR_STATIC_LEASES,
+                            "Baux statiques", "mdi:ip-network",
+                            lambda c: len(c.static_leases),
+                            unit="baux",
+                            attrs_fn=lambda c: {
+                                "leases":         c.static_leases_list(),
+                                "dhcp_range_start": c.dhcp_config.get("ip_range_start"),
+                                "dhcp_range_end":   c.dhcp_config.get("ip_range_end"),
+                                "gateway":          c.dhcp_config.get("gateway"),
+                                "netmask":          c.dhcp_config.get("netmask"),
+                            }),
     ])
 
     # ── Capteurs appareils LAN — ajout dynamique ──────────────────────────────
@@ -249,6 +261,9 @@ class FreeboxDeviceStatusSensor(FreeboxDeviceEntity, SensorEntity):
             "reachable":        d.get("reachable"),
             "active":           d.get("active"),
             "persistent":       d.get("persistent"),
+            "static_lease":     d.get("static_lease"),
+            "static_ip":        d.get("static_ip"),
+            "static_lease_comment": d.get("static_lease_comment"),
             "first_seen":       fmt(d.get("first_activity")),
             "last_seen":        fmt(d.get("last_seen")),
             "last_activity":    fmt(d.get("last_activity")),
@@ -264,8 +279,12 @@ class FreeboxGlobalSensor(CoordinatorEntity[FreeboxNetworkCoordinator], SensorEn
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "appareils"
 
-    def __init__(self, coordinator, entry, key, label, icon, value_fn):
+    def __init__(self, coordinator, entry, key, label, icon, value_fn,
+                 unit: str = "appareils", attrs_fn=None):
         super().__init__(coordinator)
+        self._attrs_fn = attrs_fn
+        self._attr_native_unit_of_measurement = unit
+
         self._entry    = entry
         self._key      = key
         self._label    = label
@@ -287,14 +306,25 @@ class FreeboxGlobalSensor(CoordinatorEntity[FreeboxNetworkCoordinator], SensorEn
         return self._value_fn(self.coordinator)
 
     @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        return self._attrs_fn(self.coordinator) if self._attrs_fn else None
+
+    @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             name="Freebox Network Inventory",
             manufacturer=MANUFACTURER,
-            model="Hub v1.1.0",
+            model="Hub v1.2.0",
             entry_type=DeviceEntryType.SERVICE,
         )
+
+
+class FreeboxStaticLeasesSensor(FreeboxGlobalSensor):
+    """Nombre de baux DHCP statiques + liste complète en attribut `leases`."""
+
+    # Liste potentiellement longue : pas d'historique dans le recorder
+    _unrecorded_attributes = frozenset({"leases", "dhcp_range_start", "dhcp_range_end", "gateway", "netmask"})
 
 
 # ── Capteurs switch ────────────────────────────────────────────────────────────

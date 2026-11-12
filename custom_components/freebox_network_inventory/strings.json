@@ -85,6 +85,9 @@
       },
       "first_activity": {
         "name": "Première activité"
+      },
+      "static_leases": {
+        "name": "Static leases"
       }
     },
     "text": {
@@ -113,6 +116,44 @@
           "Thermostat / Clim": "Thermostat / AC",
           "Éclairage connecté": "Smart light",
           "Autre": "Other"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_static_lease": {
+      "name": "Set static lease",
+      "description": "Create or update a DHCP static lease (IP reservation) on the Freebox.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "ip": {
+          "name": "IPv4 address",
+          "description": "IPv4 address to reserve."
+        },
+        "comment": {
+          "name": "Comment",
+          "description": "Optional comment stored on the Freebox."
+        },
+        "config_entry_id": {
+          "name": "Freebox",
+          "description": "Freebox to use (only needed with several Freeboxes)."
+        }
+      }
+    },
+    "remove_static_lease": {
+      "name": "Remove static lease",
+      "description": "Delete the DHCP static lease of a device.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "config_entry_id": {
+          "name": "Freebox",
+          "description": "Freebox to use (only needed with several Freeboxes)."
         }
       }
     }

@@ -5,6 +5,7 @@ import logging
 from datetime import timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -37,10 +38,12 @@ class FreeboxSwitchCoordinator(DataUpdateCoordinator[dict[int, dict[str, Any]]])
     }
     """
 
-    def __init__(self, hass: HomeAssistant, api: FreeboxApi) -> None:
+    def __init__(self, hass: HomeAssistant, api: FreeboxApi,
+                 config_entry: ConfigEntry | None = None) -> None:
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name=f"{DOMAIN}_switch",
             update_interval=timedelta(seconds=SWITCH_SCAN_INTERVAL),
         )
@@ -82,4 +85,4 @@ class FreeboxSwitchCoordinator(DataUpdateCoordinator[dict[int, dict[str, Any]]])
             result[port_id] = entry
 
         _LOGGER.debug("Switch: %d ports récupérés", len(result))
-        return result
+        return result

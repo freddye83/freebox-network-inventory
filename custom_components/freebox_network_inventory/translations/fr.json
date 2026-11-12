@@ -85,6 +85,9 @@
       },
       "first_activity": {
         "name": "Première activité"
+      },
+      "static_leases": {
+        "name": "Baux statiques"
       }
     },
     "text": {
@@ -113,6 +116,44 @@
           "Thermostat / Clim": "Thermostat / Clim",
           "Éclairage connecté": "Éclairage connecté",
           "Autre": "Autre"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_static_lease": {
+      "name": "Définir un bail statique",
+      "description": "Crée ou modifie un bail DHCP statique (réservation d'IP) sur la Freebox.",
+      "fields": {
+        "mac": {
+          "name": "Adresse MAC",
+          "description": "Adresse MAC de l'équipement."
+        },
+        "ip": {
+          "name": "Adresse IPv4",
+          "description": "Adresse IPv4 à réserver."
+        },
+        "comment": {
+          "name": "Commentaire",
+          "description": "Commentaire facultatif enregistré sur la Freebox."
+        },
+        "config_entry_id": {
+          "name": "Freebox",
+          "description": "Freebox à utiliser (seulement si vous en avez plusieurs)."
+        }
+      }
+    },
+    "remove_static_lease": {
+      "name": "Supprimer un bail statique",
+      "description": "Supprime le bail DHCP statique d'un équipement.",
+      "fields": {
+        "mac": {
+          "name": "Adresse MAC",
+          "description": "Adresse MAC de l'équipement."
+        },
+        "config_entry_id": {
+          "name": "Freebox",
+          "description": "Freebox à utiliser (seulement si vous en avez plusieurs)."
         }
       }
     }

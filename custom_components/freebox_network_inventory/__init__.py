@@ -20,6 +20,7 @@ from .const import (
 from .coordinator import FreeboxNetworkCoordinator
 from .switch_coordinator import FreeboxSwitchCoordinator
 from .freebox_api import FreeboxApi, FreeboxApiError
+from .services import async_setup_services, async_unload_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,12 +53,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(f"Cannot connect to Freebox: {err}") from err
 
     # ── Coordinateur LAN (inventaire appareils) ───────────────────────────────
-    coordinator = FreeboxNetworkCoordinator(hass, api, scan_interval)
+    coordinator = FreeboxNetworkCoordinator(hass, api, scan_interval, entry)
     await coordinator.async_load_known_devices()
     await coordinator.async_config_entry_first_refresh()
 
     # ── Coordinateur Switch (ports Ethernet) ──────────────────────────────────
-    switch_coordinator = FreeboxSwitchCoordinator(hass, api)
+    switch_coordinator = FreeboxSwitchCoordinator(hass, api, entry)
     try:
         await switch_coordinator.async_config_entry_first_refresh()
     except Exception:  # noqa: BLE001
@@ -71,6 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_setup_services(hass)
     entry.async_on_unload(entry.add_update_listener(_async_update_options))
 
     return True
@@ -92,5 +94,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception:  # noqa: BLE001
             pass
         await api.close()
+        async_unload_services(hass)
 
     return unload_ok

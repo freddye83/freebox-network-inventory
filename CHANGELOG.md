@@ -1,4 +1,16 @@
 # Changelog
+## [1.2.0] - 2026-11-12
+### Added
+- DHCP static leases: services `set_static_lease` / `remove_static_lease` (create, update, delete)
+- Global sensor `sensor.freebox_network_inventory_static_leases` (count + `leases` attribute with the full list, DHCP range, gateway, netmask)
+- Device attributes `static_lease`, `static_ip`, `static_lease_comment`
+- Services translations (EN / FR)
+### Fixed
+- Translations moved to `custom_components/freebox_network_inventory/translations/` (they were not loaded by Home Assistant)
+- Coordinators now receive the config entry explicitly (HA deprecation, "relies on ContextVar")
+### Docs
+- README in English (French version at the end), Home Assistant 2026.11 Marketplace installation, anonymised screenshot
+- LICENSE file added (MIT, as stated in the README)
 ## [1.1.2] - 2026-10-04
 ### Changed
 - sensor.py : ajout vitesses et erreurs
@@ -28,4 +40,4 @@ Suppression du via_device dans DeviceInfo des entités par appareil
 Ce champ référençait le hub qui n'existe pas encore au moment de la création des entités, ce qui causait le warning HA 2025.12
 
 ### Changed
-- Amélioration de XXX
+- Amélioration de XXX
